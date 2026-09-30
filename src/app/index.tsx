@@ -1,98 +1,76 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useMemo, useState } from 'react';
+import { SafeAreaView, View, Text, Pressable, ScrollView, StyleSheet, TextInput, StatusBar, Platform } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+type Tab = 'feed' | 'search' | 'map' | 'saved' | 'profile';
+type EventItem = { id:string; category:string; date:string; time:string; distance:string; title:string; place:string; kind:'music'|'outdoors'|'food'; people:string };
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
+const C = { ink:'#22211F', muted:'#85837E', cream:'#F7F6F1', paper:'#FFFEFA', lime:'#D8F36A', coral:'#FF715B', line:'#E9E7E0', purple:'#6F54FF', white:'#FFFFFF' };
+
+const EVENTS:EventItem[] = [
+ {id:'rooftop',category:'MUSIC',date:'FRI, SEP 25',time:'8:00 PM',distance:'0.8 mi',title:'Rexburg Rooftop Sessions',place:'The Cove',kind:'music',people:'10 people are going'},
+ {id:'hike',category:'OUTDOORS',date:'SAT, SEP 26',time:'6:00 PM',distance:'2.4 mi',title:'Table Rock Campground Sunset Hike',place:'Forest Rd 217, Ririe',kind:'outdoors',people:'12 people are going'},
+ {id:'taco',category:'FOOD',date:'SAT, SEP 26',time:'12:00 PM',distance:'1.1 mi',title:'Downtown Taco Walk',place:'E Main St, Rexburg',kind:'food',people:'27 people are going'},
+];
+
+const SEARCH = [
+ {id:'farmers',title:'Rexburg Farmers Market',meta:'MARKET · SAT, SEP 26',details:'9:00 AM · Porter Park · 0.6 mi',icon:'✿',color:'#F8DC77',keywords:'farmers market food downtown free'},
+ {id:'laughs',title:'Laughs at The Atrium',meta:'NIGHTLIFE · FRI, SEP 25',details:'9:30 PM · The Atrium · 1.2 mi',icon:'☻',color:'#C8BBFF',keywords:'comedy show night fun'},
+ {id:'cleanup',title:'Park Cleanup Crew',meta:'COMMUNITY · SAT, SEP 26',details:'10:00 AM · Smith Park · 2.1 mi',icon:'✦',color:'#B1E1DC',keywords:'volunteer community service'},
+];
+
+export default function App(){
+ const [tab,setTab]=useState<Tab>('feed');
+ const [saved,setSaved]=useState<string[]>(['rooftop','hike']);
+ const [query,setQuery]=useState('');
+ const [chip,setChip]=useState('All events');
+ const [selected,setSelected]=useState<EventItem>(EVENTS[0]);
+ const toggle=(id:string)=>setSaved(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+ const results=useMemo(()=>!query.trim()?SEARCH:SEARCH.filter(x=>`${x.title} ${x.keywords}`.toLowerCase().includes(query.toLowerCase())),[query]);
+ return <SafeAreaView style={styles.safe}>
+  <StatusBar barStyle="dark-content" backgroundColor={C.cream}/>
+  <View style={styles.app}>
+   <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    {tab==='feed' && <Feed saved={saved} toggle={toggle} go={setTab}/>} 
+    {tab==='search' && <Search query={query} setQuery={setQuery} chip={chip} setChip={setChip} results={results} saved={saved} toggle={toggle}/>} 
+    {tab==='map' && <Map selected={selected} setSelected={setSelected} go={setTab}/>} 
+    {tab==='saved' && <Saved saved={saved} toggle={toggle}/>} 
+    {tab==='profile' && <Profile savedCount={saved.length}/>} 
+   </ScrollView>
+   <BottomNav tab={tab} setTab={setTab} count={saved.length}/>
+  </View>
+ </SafeAreaView>;
 }
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+function Header({eyebrow,title,accent}:{eyebrow:string;title:string;accent:string}){return <View style={styles.header}><Text style={styles.eyebrow}>{eyebrow}</Text><Text style={styles.h1}>{title} <Text style={styles.coral}>{accent}</Text></Text></View>}
+function Section({eyebrow,title,action,onPress}:{eyebrow:string;title:string;action:string;onPress?:()=>void}){return <View style={styles.sectionHead}><View><Text style={styles.eyebrow}>{eyebrow}</Text><Text style={styles.sectionTitle}>{title} <Text style={styles.coral}>↗</Text></Text></View><Pressable onPress={onPress}><Text style={styles.action}>{action} <Text style={styles.coral}>→</Text></Text></Pressable></View>}
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+function Feed({saved,toggle,go}:{saved:string[];toggle:(id:string)=>void;go:(t:Tab)=>void}){return <>
+ <Header eyebrow="REXBURG, ID  •  ●" title="What's happening" accent="today?"/>
+ <View style={styles.hero}><View style={styles.heroMain}><View style={styles.tag}><Text style={styles.tagText}>TONIGHT · 8:00 PM</Text></View><Text style={styles.heroTitle}>Rexburg is <Text style={styles.lime}>alive.</Text></Text><Text style={styles.heroBody}>Find your people. Find your place.{"\n"}Make tonight worth remembering.</Text><Pressable onPress={()=>go('search')}><Text style={styles.heroLink}>Explore what's on  →</Text></Pressable></View><View style={styles.scribble}><Text style={styles.star}>✳</Text><Text style={styles.scribbleText}>LOCAL{`\n`}ONLY</Text></View></View>
+ <Section eyebrow="CURATED FOR YOU" title="On the radar" action="View all" onPress={()=>go('search')}/>
+ {EVENTS.map(e=><EventCard key={e.id} event={e} saved={saved.includes(e.id)} toggle={toggle}/>)}
+ <Section eyebrow="KEEP SCROLLING" title="Coming up" action="Filter" onPress={()=>go('search')}/>
+ <View style={styles.compact}><DateBox number="1" label={'OCT\nTHURS'}/><View style={styles.flex}><Text style={styles.compactType}>COMMUNITY</Text><Text style={styles.compactTitle}>Open Mic Night at The School</Text><Text style={styles.small}>7:00 PM · 525 S Center St, Rexburg</Text></View><Text style={styles.arrow}>→</Text></View>
+ </>}
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+function EventCard({event,saved,toggle}:{event:EventItem;saved:boolean;toggle:(id:string)=>void}){return <View style={styles.card}><View style={[styles.eventImage,imageColor(event.kind)]}><View style={styles.category}><Text style={styles.categoryText}>{event.category}</Text></View><Pressable style={styles.save} onPress={()=>toggle(event.id)}><Text style={[styles.heart,saved&&styles.savedHeart]}>{saved?'♥':'♡'}</Text></Pressable><View style={styles.decoration}>{event.kind==='music'&&<><Text style={styles.musicText}>LIVE{`\n`}MUSIC</Text><Text style={styles.decoSmall}>+ GOOD PEOPLE</Text></>}{event.kind==='outdoors'&&<><View style={styles.mountainA}/><View style={styles.mountainB}/><Text style={styles.hikeText}>sunset{`\n`}HIKE</Text></>}{event.kind==='food'&&<Text style={styles.tacoText}>TACO{`\n`}<Text style={styles.tacoStrong}>WALK</Text></Text>}</View></View><View style={styles.cardBody}><View style={styles.metaRow}><Text style={styles.meta}>{event.date} · {event.time}</Text><Text style={styles.distance}>{event.distance}</Text></View><Text style={styles.eventTitle}>{event.title}</Text><Text style={styles.small}>{event.place}</Text><View style={styles.attending}><View style={styles.faces}><Face t="MK"/><Face t="AJ" bg="#81B0A0"/><Face t="+8" bg={C.purple}/></View><Text style={styles.small}>{event.people}</Text></View></View></View>}
+function Face({t,bg='#EF9C70'}:{t:string;bg?:string}){return <View style={[styles.face,{backgroundColor:bg}]}><Text style={styles.faceText}>{t}</Text></View>}
+function imageColor(k:EventItem['kind']){return k==='music'?{backgroundColor:'#C56D62'}:k==='outdoors'?{backgroundColor:'#52796F'}:{backgroundColor:'#E97952'}}
+function DateBox({number,label}:{number:string;label:string}){return <View style={styles.dateBox}><Text style={styles.dateNumber}>{number}</Text><Text style={styles.dateLabel}>{label}</Text></View>}
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
+function Search({query,setQuery,chip,setChip,results,saved,toggle}:{query:string;setQuery:(x:string)=>void;chip:string;setChip:(x:string)=>void;results:typeof SEARCH;saved:string[];toggle:(x:string)=>void}){return <><Header eyebrow="DISCOVER SOMETHING NEW" title="Find your" accent="next move."/><View style={styles.searchBox}><Text style={styles.searchIcon}>⌕</Text><TextInput value={query} onChangeText={setQuery} placeholder="Search events, places, or vibes" placeholderTextColor="#AAA79D" style={styles.input}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{['All events','Tonight','This weekend','Free'].map(x=><Pressable key={x} onPress={()=>setChip(x)} style={[styles.chip,chip===x&&styles.chipActive]}><Text style={[styles.chipText,chip===x&&styles.chipTextActive]}>{x}</Text></Pressable>)}</ScrollView><View style={styles.searchHead}><Text style={styles.sectionTitle}>Popular near you</Text><Text style={styles.small}>{results.length} events</Text></View>{results.map(x=><View style={styles.result} key={x.id}><View style={[styles.resultIcon,{backgroundColor:x.color}]}><Text style={styles.resultIconText}>{x.icon}</Text></View><View style={styles.flex}><Text style={styles.compactType}>{x.meta}</Text><Text style={styles.resultTitle}>{x.title}</Text><Text style={styles.small}>{x.details}</Text></View><Pressable onPress={()=>toggle(x.id)}><Text style={[styles.resultHeart,saved.includes(x.id)&&styles.savedHeart]}>{saved.includes(x.id)?'♥':'♡'}</Text></Pressable></View>)}</>}
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+function Map({selected,setSelected,go}:{selected:EventItem;setSelected:(e:EventItem)=>void;go:(t:Tab)=>void}){const farmers={...EVENTS[0],id:'farmers',title:'Farmers Market',place:'Porter Park',distance:'0.6 mi'};const laughs={...EVENTS[0],id:'laughs',title:'Laughs at The Atrium',place:'The Atrium',distance:'1.2 mi'};return <><Header eyebrow="LIVE EVENT MAP" title="What's close to" accent="you?"/><View style={styles.map}><View style={styles.grid}/><View style={[styles.road,{top:'38%',transform:[{rotate:'-18deg'}]}]}/><View style={[styles.road,{top:'63%',transform:[{rotate:'15deg'}]}]}/><Text style={[styles.mapLabel,{top:'29%',left:'31%'}]}>DOWNTOWN</Text><Text style={[styles.mapLabel,{top:'70%',left:'12%'}]}>BYU–IDAHO</Text><Text style={[styles.mapLabel,{top:'21%',right:'14%'}]}>PORTER PARK</Text><Pin pos={styles.p1} active={selected.id==='rooftop'} onPress={()=>setSelected(EVENTS[0])} icon="✦"/><Pin pos={styles.p2} active={selected.id==='farmers'} onPress={()=>setSelected(farmers)} icon="✿"/><Pin pos={styles.p3} active={selected.id==='laughs'} onPress={()=>setSelected(laughs)} icon="☻"/><View style={styles.mapCard}><Text style={styles.compactType}>HAPPENING SOON</Text><Text style={styles.mapTitle}>{selected.title}</Text><Text style={styles.small}>{selected.place} · {selected.distance} away</Text><Pressable onPress={()=>go('search')}><Text style={styles.mapLink}>View event →</Text></Pressable></View></View><View style={styles.legend}><Legend color={C.purple} text="Music"/><Legend color="#EFB63E" text="Food & markets"/><Legend color="#6BB5A6" text="Community"/></View></>}
+function Pin({pos,active,onPress,icon}:{pos:any;active:boolean;onPress:()=>void;icon:string}){return <Pressable onPress={onPress} style={[styles.pin,pos,active&&styles.pinActive]}><Text style={styles.pinText}>{icon}</Text></Pressable>}
+function Legend({color,text}:{color:string;text:string}){return <View style={styles.legendItem}><View style={[styles.dot,{backgroundColor:color}]}/><Text style={styles.small}>{text}</Text></View>}
+
+function Saved({saved,toggle}:{saved:string[];toggle:(id:string)=>void}){const list=EVENTS.filter(e=>saved.includes(e.id));return <><Header eyebrow="YOUR SHORTLIST" title="Saved for" accent="later."/><View style={styles.note}><Text style={styles.noteIcon}>♡</Text><View style={styles.flex}><Text style={styles.noteTitle}>Good choices.</Text><Text style={styles.noteBody}>These are the events you said you wanted to remember.</Text></View></View>{list.length===0?<View style={styles.empty}><Text style={styles.emptyIcon}>♡</Text><Text style={styles.emptyTitle}>Nothing saved yet</Text><Text style={styles.small}>Tap the heart on an event to save it here.</Text></View>:list.map((e,i)=><View style={styles.savedRow} key={e.id}><DateBox number={i===0?'25':'26'} label="SEP"/><View style={styles.flex}><Text style={styles.compactType}>{e.category} · {e.time}</Text><Text style={styles.resultTitle}>{e.title}</Text><Text style={styles.small}>{e.place}</Text></View><Pressable onPress={()=>toggle(e.id)}><Text style={styles.savedHeart}>♥</Text></Pressable></View>)}</>}
+
+function Profile({savedCount}:{savedCount:number}){return <><View style={styles.cover}><Text style={styles.coverText}>LOCAL</Text><Text style={[styles.coverText,styles.coverAccent]}>ENERGY</Text></View><View style={styles.profile}><View style={styles.avatar}><Text style={styles.avatarText}>EN</Text></View><Pressable style={styles.edit}><Text style={styles.editText}>Edit profile</Text></Pressable><Text style={styles.profileName}>Example Name</Text><Text style={styles.profileHandle}>@example_name · Rexburg, ID</Text><View style={styles.stats}><Stat n={savedCount} t="events saved"/><Stat n={8} t="moves made"/><Stat n={12} t="friends"/></View></View><View style={styles.profileSection}><View style={styles.profileSectionHead}><Text style={styles.sectionTitle}>My vibe lately</Text><Text style={styles.compactType}>THIS MONTH</Text></View><View style={styles.vibes}>{['✦ Live music','☼ Outdoors','☻ New food','＋ Community'].map(x=><View style={styles.vibe} key={x}><Text style={styles.vibeText}>{x}</Text></View>)}</View></View></>}
+function Stat({n,t}:{n:number;t:string}){return <View><Text style={styles.stat}>{n}</Text><Text style={styles.small}>{t}</Text></View>}
+
+function BottomNav({tab,setTab,count}:{tab:Tab;setTab:(x:Tab)=>void;count:number}){const items:[Tab,string,string][]=[['feed','✦','For you'],['search','⌕','Search'],['map','⌖','Map'],['saved','♡','Saved'],['profile','◉','Profile']];return <View style={styles.bottom}>{items.map(([id,icon,label])=><Pressable key={id} onPress={()=>setTab(id)} style={styles.navItem}><View><Text style={[styles.navIcon,tab===id&&styles.navActive]}>{icon}</Text>{id==='saved'&&count>0&&<View style={styles.badge}><Text style={styles.badgeText}>{count}</Text></View>}</View><Text style={[styles.navLabel,tab===id&&styles.navLabelActive]}>{label}</Text></Pressable>)}</View>}
+
+const styles=StyleSheet.create({
+ safe:{flex:1,backgroundColor:C.cream,paddingTop:Platform.OS==='android'?8:0},app:{flex:1,backgroundColor:C.cream},scroll:{flex:1},content:{paddingHorizontal:20,paddingTop:22,paddingBottom:105},flex:{flex:1},header:{marginBottom:26},eyebrow:{color:C.muted,fontSize:10,fontWeight:'700',letterSpacing:1.4,marginBottom:7},h1:{color:C.ink,fontSize:36,lineHeight:39,fontWeight:'900',letterSpacing:-1.5},coral:{color:C.coral},lime:{color:C.lime},hero:{minHeight:225,backgroundColor:C.coral,padding:23,flexDirection:'row',overflow:'hidden'},heroMain:{flex:1},tag:{alignSelf:'flex-start',backgroundColor:C.lime,paddingHorizontal:9,paddingVertical:6},tagText:{fontSize:9,fontWeight:'800',letterSpacing:.6},heroTitle:{color:C.white,fontSize:39,lineHeight:39,fontWeight:'900',letterSpacing:-1.5,marginTop:18},heroBody:{color:'#FFF9F3',fontSize:13,lineHeight:19,marginTop:9},heroLink:{color:C.white,fontSize:12,fontWeight:'800',marginTop:20},scribble:{width:75,alignItems:'center',paddingTop:13},star:{color:C.lime,fontSize:52,fontWeight:'900'},scribbleText:{color:C.white,fontSize:10,lineHeight:12,letterSpacing:1.5,textAlign:'center',transform:[{rotate:'-8deg'}]},sectionHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-end',marginTop:38,marginBottom:16},sectionTitle:{color:C.ink,fontSize:23,fontWeight:'900',letterSpacing:-.6},action:{color:C.ink,fontSize:11,fontWeight:'800'},card:{backgroundColor:C.paper,borderWidth:1,borderColor:C.line,marginBottom:15},eventImage:{height:180,padding:12,overflow:'hidden',position:'relative'},category:{alignSelf:'flex-start',backgroundColor:'rgba(255,255,255,.9)',paddingHorizontal:7,paddingVertical:5},categoryText:{fontSize:9,fontWeight:'800',letterSpacing:.8},save:{position:'absolute',right:11,top:11,width:34,height:34,borderRadius:17,backgroundColor:'rgba(255,255,255,.92)',alignItems:'center',justifyContent:'center'},heart:{fontSize:20,color:C.ink},savedHeart:{color:C.coral,fontSize:22},decoration:{position:'absolute',left:18,right:18,bottom:15},musicText:{color:C.white,fontSize:27,lineHeight:25,fontWeight:'900',transform:[{rotate:'-5deg'}]},decoSmall:{color:C.lime,fontSize:11,fontWeight:'800',marginTop:4},mountainA:{position:'absolute',width:250,height:100,bottom:-35,left:-25,backgroundColor:'#213E39',transform:[{rotate:'-9deg'}]},mountainB:{position:'absolute',width:190,height:90,bottom:-40,right:-40,backgroundColor:'#31554D',transform:[{rotate:'10deg'}]},hikeText:{color:C.lime,fontSize:25,lineHeight:25,fontWeight:'900',transform:[{rotate:'-4deg'}]},tacoText:{color:C.white,fontSize:27,lineHeight:27,fontWeight:'800',transform:[{rotate:'-4deg'}]},tacoStrong:{color:'#FFE477',fontSize:45,fontWeight:'900'},cardBody:{padding:15},metaRow:{flexDirection:'row',justifyContent:'space-between'},meta:{color:C.coral,fontSize:9,fontWeight:'800'},distance:{color:C.muted,fontSize:9},eventTitle:{color:C.ink,fontSize:17,fontWeight:'900',marginTop:9},small:{color:C.muted,fontSize:11,lineHeight:16},attending:{flexDirection:'row',alignItems:'center',gap:9,marginTop:15},faces:{flexDirection:'row',paddingLeft:2},face:{width:22,height:22,borderRadius:11,borderWidth:2,borderColor:C.paper,justifyContent:'center',alignItems:'center',marginLeft:-4},faceText:{color:C.white,fontSize:6,fontWeight:'800'},compact:{flexDirection:'row',alignItems:'center',gap:13,borderTopWidth:1,borderBottomWidth:1,borderColor:C.line,paddingVertical:14},dateBox:{width:54,height:55,backgroundColor:C.lime,alignItems:'center',justifyContent:'center'},dateNumber:{color:C.ink,fontSize:24,fontWeight:'900',lineHeight:24},dateLabel:{color:C.ink,fontSize:8,fontWeight:'800',textAlign:'center',lineHeight:9},compactType:{color:C.muted,fontSize:9,fontWeight:'800',letterSpacing:1},compactTitle:{color:C.ink,fontSize:15,fontWeight:'900',marginTop:4},arrow:{color:C.coral,fontSize:25},searchBox:{height:52,backgroundColor:C.white,borderWidth:1,borderColor:C.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14},searchIcon:{color:C.coral,fontSize:25,marginRight:10},input:{flex:1,color:C.ink,fontSize:14},chips:{gap:8,paddingVertical:16},chip:{borderWidth:1,borderColor:C.line,borderRadius:30,paddingHorizontal:13,paddingVertical:8},chipActive:{backgroundColor:C.ink,borderColor:C.ink},chipText:{color:C.muted,fontSize:11,fontWeight:'700'},chipTextActive:{color:C.white},searchHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:18,marginBottom:12},result:{minHeight:82,backgroundColor:C.white,borderBottomWidth:1,borderColor:C.line,flexDirection:'row',alignItems:'center',gap:12,paddingVertical:13},resultIcon:{width:50,height:50,alignItems:'center',justifyContent:'center'},resultIconText:{fontSize:25},resultTitle:{color:C.ink,fontSize:15,fontWeight:'900',marginVertical:4},resultHeart:{fontSize:25,color:C.ink,paddingHorizontal:5},map:{height:500,backgroundColor:'#E6E3D3',overflow:'hidden',borderWidth:1,borderColor:'#D9D5C5',position:'relative'},grid:{...StyleSheet.absoluteFillObject,opacity:.35,backgroundColor:'#D5D2C5'},road:{position:'absolute',left:-80,width:500,height:12,backgroundColor:C.paper,borderTopWidth:2,borderBottomWidth:2,borderColor:'#D6D2C1'},mapLabel:{position:'absolute',color:'#AAA695',fontSize:10,fontWeight:'700',letterSpacing:1},pin:{position:'absolute',width:42,height:42,borderRadius:21,backgroundColor:C.coral,alignItems:'center',justifyContent:'center',elevation:4},pinActive:{backgroundColor:C.purple,transform:[{scale:1.12}]},p1:{top:'36%',left:'45%'},p2:{top:'20%',left:'70%',backgroundColor:'#EFB63E'},p3:{top:'61%',left:'24%',backgroundColor:'#6BB5A6'},pinText:{color:C.white,fontSize:17},mapCard:{position:'absolute',left:16,right:16,bottom:16,backgroundColor:C.paper,padding:16,elevation:4},mapTitle:{color:C.ink,fontSize:17,fontWeight:'900',marginVertical:5},mapLink:{color:C.coral,fontSize:11,fontWeight:'900',marginTop:12},legend:{flexDirection:'row',flexWrap:'wrap',gap:18,paddingTop:15},legendItem:{flexDirection:'row',alignItems:'center',gap:5},dot:{width:8,height:8,borderRadius:4},note:{flexDirection:'row',alignItems:'center',gap:13,backgroundColor:C.lime,padding:18,marginBottom:25},noteIcon:{fontSize:28},noteTitle:{color:C.ink,fontSize:17,fontWeight:'900'},noteBody:{color:C.ink,fontSize:12,lineHeight:17,marginTop:4},savedRow:{flexDirection:'row',alignItems:'center',gap:13,paddingVertical:17,borderTopWidth:1,borderColor:C.line},empty:{alignItems:'center',paddingVertical:65},emptyIcon:{fontSize:45,color:C.coral},emptyTitle:{color:C.ink,fontSize:20,fontWeight:'900',marginTop:10},cover:{height:185,backgroundColor:C.ink,overflow:'hidden',justifyContent:'center',alignItems:'center'},coverText:{color:C.lime,fontSize:54,fontWeight:'900',letterSpacing:-4,transform:[{rotate:'-7deg'}]},coverAccent:{color:C.coral,marginTop:-5},profile:{position:'relative',paddingBottom:40},avatar:{width:76,height:76,borderRadius:38,backgroundColor:C.purple,borderWidth:5,borderColor:C.cream,marginTop:-38,justifyContent:'center',alignItems:'center'},avatarText:{color:C.white,fontSize:22,fontWeight:'900'},edit:{position:'absolute',right:0,top:17,borderWidth:1,borderColor:C.line,backgroundColor:C.white,borderRadius:25,paddingHorizontal:15,paddingVertical:9},editText:{color:C.ink,fontSize:11,fontWeight:'800'},profileName:{color:C.ink,fontSize:28,fontWeight:'900',marginTop:12},profileHandle:{color:C.muted,fontSize:12,marginTop:3},stats:{flexDirection:'row',gap:28,marginTop:25},stat:{color:C.ink,fontSize:21,fontWeight:'900'},profileSection:{borderTopWidth:1,borderColor:C.line,paddingTop:18},profileSectionHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},vibes:{flexDirection:'row',flexWrap:'wrap',gap:9,marginTop:18},vibe:{backgroundColor:C.white,borderWidth:1,borderColor:C.line,paddingHorizontal:13,paddingVertical:11},vibeText:{color:C.ink,fontSize:12,fontWeight:'700'},bottom:{position:'absolute',left:0,right:0,bottom:0,height:78,backgroundColor:'#FFFFFF',borderTopWidth:1,borderTopColor:C.line,flexDirection:'row',justifyContent:'space-around',paddingTop:9,paddingBottom:7},navItem:{flex:1,alignItems:'center',justifyContent:'center'},navIcon:{color:'#918E86',fontSize:21,textAlign:'center'},navActive:{color:C.coral},navLabel:{color:C.muted,fontSize:9,fontWeight:'700',marginTop:3},navLabelActive:{color:C.ink,fontWeight:'900'},badge:{position:'absolute',top:-3,right:-12,minWidth:15,height:15,borderRadius:8,backgroundColor:C.lime,alignItems:'center',justifyContent:'center'},badgeText:{color:C.ink,fontSize:8,fontWeight:'900'}
 });
